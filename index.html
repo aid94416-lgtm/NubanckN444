@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulador Nubank Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        nu: {
+                            purple: '#820AD1',
+                            darkPurple: '#530082',
+                            deepPurple: '#19002E',
+                            black: '#0D0D0E',
+                            card: '#19191B',
+                            cardHover: '#242427',
+                            border: '#2A2A2E',
+                            accent: '#A855F7',
+                            gold: '#F59E0B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .sheet-up {
+            animation: slideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .ultraviolet-glow {
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.25), inset 0 0 15px rgba(168, 85, 247, 0.15);
+        }
+
+        .blur-balance {
+            filter: blur(8px);
+            opacity: 0.6;
+            transition: all 0.2s ease;
+        }
+
+        /* Clean click-to-edit without any visible pencil or outlines */
+        .editable-val {
+            cursor: pointer;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-950 text-white flex justify-center items-center overflow-hidden antialiased">
+
+    <!-- Mobile App Container Mockup -->
+    <div id="app-viewport" class="w-full max-w-md h-full sm:h-[95vh] sm:rounded-[44px] bg-nu-black flex flex-col relative overflow-hidden shadow-2xl border border-neutral-800">
+
+        <!-- APP HEADER (NU PURPLE HERO) -->
+        <header class="bg-gradient-to-b from-nu-deepPurple via-nu-darkPurple to-nu-purple p-5 pt-6 pb-6 transition-all duration-300">
+            <!-- Top Action Icons -->
+            <div class="flex items-center justify-between mb-5">
+                <!-- User Profile Avatar & Name Click to Edit -->
+                <div onclick="promptEdit('userName')" class="flex items-center space-x-3 cursor-pointer group text-left">
+                    <div class="w-11 h-11 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-bold text-white shadow-md group-active:scale-95 transition relative">
+                        <span id="avatar-initial">N</span>
+                    </div>
+                </div>
+
+                <!-- Header Action Buttons -->
+                <div class="flex items-center space-x-1.5">
+                    <button id="eye-btn" onclick="toggleBalanceVisibility()" class="p-2.5 rounded-full hover:bg-white/10 active:scale-90 transition text-white" title="Ocultar/Exibir Saldo">
+                        <i id="eye-icon" data-lucide="eye" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="openModal('modal-cards')" class="p-2.5 rounded-full hover:bg-white/10 active:scale-90 transition text-white relative" title="Meus Cartões">
+                        <i data-lucide="credit-card" class="w-5 h-5"></i>
+                        <span class="absolute top-2 right-2 w-2 h-2 bg-amber-400 rounded-full"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Greeting & NuCoins Badge -->
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 id="user-greeting" onclick="promptEdit('userName')" class="text-xl font-bold tracking-tight text-white editable-val">Olá, Natan</h1>
+                    </div>
+                    <div class="flex items-center space-x-1.5 mt-0.5">
+                        <span class="text-[11px] font-semibold text-purple-200 bg-white/15 px-2 py-0.5 rounded-full border border-white/10">Ultravioleta VIP</span>
+                    </div>
+                </div>
+                <!-- NuCoins Badge Click to Edit -->
+                <button onclick="promptEdit('nucoins')" class="bg-white/15 hover:bg-white/25 border border-white/20 px-3 py-1.5 rounded-full flex items-center space-x-1.5 active:scale-95 transition cursor-pointer">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300"></i>
+                    <span id="nucoins-count" class="text-xs font-bold text-white">2.840 NuCoins</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- SCROLLABLE APP BODY -->
+        <main class="flex-1 overflow-y-auto no-scrollbar pb-20">
+
+            <!-- TAB 1: HOME -->
+            <div id="tab-home" class="tab-page space-y-2">
+                
+                <!-- Account Balance Section -->
+                <section class="p-5 border-b border-nu-border/60 hover:bg-neutral-900/40 transition relative group">
+                    <div class="flex items-center justify-between mb-1" onclick="switchTab('finance')">
+                        <span class="text-sm font-semibold text-neutral-300">Conta</span>
+                        <i data-lucide="chevron-right" class="w-5 h-5 text-neutral-500"></i>
+                    </div>
+                    <!-- Direct click to edit Main Balance -->
+                    <div class="mt-1 inline-block">
+                        <span id="main-balance" onclick="promptEdit('balance')" class="text-2xl font-extrabold text-white tracking-tight editable-val">R$ 2.450,80</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5 mt-2 text-[11px] text-emerald-400 font-medium">
+                        <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                        <span>Rendendo 100% do CDI hoje</span>
+                    </div>
+                </section>
+
+                <!-- Quick Actions Scrollable Carousel -->
+                <section class="py-4 pl-5 overflow-x-auto no-scrollbar flex space-x-4 border-b border-nu-border/60">
+                    
+                    <!-- Pix -->
+                    <div onclick="openModal('modal-pix')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="qr-code" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Área Pix</span>
+                    </div>
+
+                    <!-- Pagar -->
+                    <div onclick="openModal('modal-pay')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="barcode" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Pagar</span>
+                    </div>
+
+                    <!-- Empréstimo -->
+                    <div onclick="openModal('modal-loan')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="hand-coins" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Empréstimo</span>
+                    </div>
+
+                    <!-- Transferir -->
+                    <div onclick="openModal('modal-transfer')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="arrow-up-right" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Transferir</span>
+                    </div>
+
+                    <!-- Depositar -->
+                    <div onclick="openModal('modal-deposit')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="arrow-down-left" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Depositar</span>
+                    </div>
+
+                    <!-- Recarga -->
+                    <div onclick="openModal('modal-recharge')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="smartphone" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Recarga</span>
+                    </div>
+
+                    <!-- Caixinhas -->
+                    <div onclick="openModal('modal-caixinhas')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="piggy-bank" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Caixinhas</span>
+                    </div>
+
+                    <!-- Crypto -->
+                    <div onclick="openModal('modal-crypto')" class="flex flex-col items-center flex-shrink-0 cursor-pointer group pr-5">
+                        <div class="w-16 h-16 rounded-full bg-nu-card group-active:scale-95 group-active:bg-neutral-800 flex items-center justify-center mb-2 transition shadow-lg border border-neutral-800">
+                            <i data-lucide="bitcoin" class="w-6 h-6 text-amber-400"></i>
+                        </div>
+                        <span class="text-xs font-medium text-neutral-200">Nu Cripto</span>
+                    </div>
+
+                </section>
+
+                <!-- My Cards Shortcut -->
+                <section class="p-5 border-b border-nu-border/60">
+                    <button onclick="openModal('modal-cards')" class="w-full bg-nu-card hover:bg-nu-cardHover active:scale-[0.98] p-4 rounded-2xl flex items-center justify-between border border-neutral-800 transition">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-nu-purple/20 flex items-center justify-center text-nu-accent">
+                                <i data-lucide="credit-card" class="w-5 h-5"></i>
+                            </div>
+                            <div class="text-left">
+                                <span class="text-sm font-bold text-white block">Meus cartões</span>
+                                <span class="text-xs text-neutral-400">Físico, Virtuais e Ultravioleta VIP</span>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-5 h-5 text-neutral-500"></i>
+                    </button>
+                </section>
+
+                <!-- Credit Card Section -->
+                <section class="p-5 border-b border-nu-border/60">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="credit-card" class="w-5 h-5 text-neutral-300"></i>
+                            <span class="text-sm font-bold text-neutral-200">Cartão de crédito</span>
+                        </div>
+                    </div>
+
+                    <p class="text-xs font-medium text-neutral-400 mb-1">Fatura atual</p>
+                    
+                    <!-- Direct click to edit Credit Card Invoice -->
+                    <div>
+                        <span id="credit-invoice" onclick="promptEdit('creditInvoice')" class="text-2xl font-extrabold tracking-tight text-white editable-val">R$ 840,20</span>
+                    </div>
+
+                    <!-- Direct click to edit Credit Limit -->
+                    <p class="text-xs text-neutral-400 mt-2">Limite disponível: 
+                        <span id="credit-limit" onclick="promptEdit('creditLimit')" class="font-bold text-emerald-400 editable-val">R$ 4.159,80</span>
+                    </p>
+
+                    <div class="flex space-x-3 mt-4">
+                        <button onclick="payInvoice()" class="px-5 py-2.5 bg-nu-purple hover:bg-purple-700 text-white text-xs font-bold rounded-full active:scale-95 transition shadow-lg">Pagar fatura</button>
+                        <button onclick="openModal('modal-cards')" class="px-5 py-2.5 bg-nu-card hover:bg-neutral-800 text-white text-xs font-bold rounded-full border border-neutral-700 active:scale-95 transition">Meus Cartões</button>
+                    </div>
+                </section>
+
+                <!-- Extrato Feed -->
+                <section class="p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-sm font-bold text-neutral-200">Histórico de Atividades</h3>
+                        <button onclick="clearHistory()" class="text-[11px] text-neutral-400 hover:text-white">Limpar</button>
+                    </div>
+
+                    <div id="extrato-feed" class="space-y-4">
+                        <!-- Dynamic items -->
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- TAB 2: FINANÇAS ($) -->
+            <div id="tab-finance" class="tab-page hidden p-5 space-y-6">
+                <div class="border-b border-nu-border/60 pb-4">
+                    <h2 class="text-2xl font-extrabold text-white">Finanças</h2>
+                </div>
+
+                <!-- Total Patrimony Card -->
+                <div class="bg-gradient-to-br from-nu-deepPurple via-nu-card to-black p-5 rounded-3xl border border-purple-900/40 shadow-xl">
+                    <span class="text-[11px] text-purple-300 font-semibold uppercase tracking-wider">Patrimônio Total</span>
+                    <h3 id="finance-total-networth" class="text-3xl font-black text-white mt-1">R$ 5.950,80</h3>
+                    
+                    <div class="grid grid-cols-2 gap-3 mt-4 text-xs">
+                        <div class="bg-black/50 p-3 rounded-2xl border border-neutral-800">
+                            <span class="text-neutral-400 block text-[10px] uppercase font-semibold">Conta Principal</span>
+                            <span id="fin-acc-bal" onclick="promptEdit('balance')" class="font-bold text-white text-sm editable-val">R$ 2.450,80</span>
+                        </div>
+                        <div class="bg-black/50 p-3 rounded-2xl border border-neutral-800">
+                            <span class="text-neutral-400 block text-[10px] uppercase font-semibold">Caixinhas CDI</span>
+                            <span id="fin-box-bal" onclick="promptEdit('caixinhaBalance')" class="font-bold text-emerald-400 text-sm editable-val">R$ 3.500,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Credit Limit Slider -->
+                <div class="bg-nu-card p-5 rounded-3xl border border-neutral-800 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-sm font-bold text-white">Ajuste Rápido de Limite</h4>
+                        <span id="limit-slider-val" onclick="promptEdit('creditLimit')" class="text-sm font-extrabold text-emerald-400 editable-val">R$ 4.159,80</span>
+                    </div>
+                    <input id="credit-limit-slider" type="range" min="0" max="50000" step="100" value="4159.80" oninput="updateLimitFromSlider(this.value)" class="w-full accent-nu-purple bg-neutral-800 rounded-lg cursor-pointer">
+                </div>
+            </div>
+
+            <!-- TAB 3: HUB NUBANK -->
+            <div id="tab-hub" class="tab-page hidden p-5 space-y-6">
+                <div class="flex items-center justify-between border-b border-nu-border/60 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-extrabold text-white">Aba Nubank</h2>
+                        <p class="text-xs text-neutral-400">Shopping, Cripto e Benefícios VIP</p>
+                    </div>
+                    <div class="w-11 h-11 rounded-2xl bg-nu-purple text-white flex items-center justify-center font-bold">
+                        <i data-lucide="grid" class="w-6 h-6"></i>
+                    </div>
+                </div>
+
+                <!-- NuCoin Banner -->
+                <div class="bg-gradient-to-r from-purple-900 via-nu-purple to-indigo-900 p-6 rounded-3xl relative overflow-hidden shadow-2xl border border-purple-500/30">
+                    <div class="relative z-10 space-y-2">
+                        <div class="inline-flex items-center space-x-1 bg-black/40 px-3 py-1 rounded-full border border-amber-400/30">
+                            <i data-lucide="coins" class="w-4 h-4 text-amber-300"></i>
+                            <span class="text-xs font-bold text-amber-300">Nucoin Nível 7 VIP</span>
+                        </div>
+                        <div>
+                            <h3 id="hub-nucoins-val" onclick="promptEdit('nucoins')" class="text-2xl font-black text-white editable-val">2.840 NuCoins</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- BOTTOM NAVIGATION BAR -->
+        <nav class="absolute bottom-0 left-0 right-0 h-16 bg-nu-black/95 backdrop-blur-lg border-t border-nu-border/80 flex justify-around items-center px-4 z-40">
+            <button id="nav-home" onclick="switchTab('home')" class="flex flex-col items-center justify-center w-full text-nu-purple">
+                <i data-lucide="arrow-up-down" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold mt-1">Início</span>
+            </button>
+            <button id="nav-finance" onclick="switchTab('finance')" class="flex flex-col items-center justify-center w-full text-neutral-500 hover:text-white">
+                <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold mt-1">Finanças</span>
+            </button>
+            <button id="nav-hub" onclick="switchTab('hub')" class="flex flex-col items-center justify-center w-full text-neutral-500 hover:text-white">
+                <i data-lucide="grid" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold mt-1">Aba Nubank</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- DIRECT CLICK VALUE EDIT MODAL -->
+    <div id="modal-quick-edit" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-purple-500/40">
+            <div class="flex justify-between items-center mb-4 border-b border-neutral-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="p-2 bg-nu-purple/20 text-nu-accent rounded-xl">
+                        <i data-lucide="edit-3" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 id="quick-edit-title" class="text-lg font-extrabold text-white">Editar Valor</h3>
+                        <p class="text-xs text-neutral-400">Insira o novo valor desejado abaixo</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modal-quick-edit')" class="p-2 text-neutral-400 hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <form onsubmit="saveQuickEdit(event)" class="space-y-4 mb-4">
+                <div>
+                    <label id="quick-edit-label" class="text-xs text-purple-300 block mb-1.5 font-semibold">Valor</label>
+                    <input id="quick-edit-input" type="text" class="w-full bg-nu-card border border-purple-500/50 rounded-2xl p-4 text-xl font-black text-white focus:outline-none focus:border-nu-accent" autofocus>
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('modal-quick-edit')" class="w-1/2 py-3.5 bg-nu-card border border-neutral-800 font-bold text-xs rounded-full text-neutral-400 hover:text-white">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="w-1/2 py-3.5 bg-nu-purple hover:bg-purple-700 font-extrabold text-xs rounded-full text-white shadow-lg active:scale-95 transition">
+                        Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: MEUS CARTÕES -->
+    <div id="modal-cards" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800 max-h-[92vh] overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center mb-5">
+                <div>
+                    <h3 class="text-xl font-bold text-white">Meus Cartões</h3>
+                    <p class="text-xs text-neutral-400">Cartões físico, virtuais e Ultravioleta</p>
+                </div>
+                <button onclick="closeModal('modal-cards')" class="p-2 text-neutral-400 hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="space-y-5 mb-6">
+                <!-- NUBANK ULTRAVIOLETA BLACK FOUNDER -->
+                <div class="bg-gradient-to-tr from-black via-zinc-900 to-stone-900 p-5 rounded-2xl border border-purple-500/60 relative overflow-hidden ultraviolet-glow">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <span class="text-[9px] font-extrabold uppercase tracking-widest text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">Ultravioleta Metal VIP</span>
+                            <h4 id="card-holder-name" onclick="promptEdit('userName')" class="text-sm font-bold text-white mt-1 editable-val">Natan Silva</h4>
+                        </div>
+                        <i data-lucide="wifi" class="w-5 h-5 text-purple-400 rotate-90"></i>
+                    </div>
+                    <p class="text-base tracking-widest font-mono text-purple-200 font-bold mb-4">5542 •••• •••• 9901</p>
+                    <div class="flex justify-between items-end text-xs text-neutral-300">
+                        <div>
+                            <p class="text-[9px] text-neutral-400 uppercase">Validade</p>
+                            <p class="font-bold text-white">12/32</p>
+                        </div>
+                        <div>
+                            <p class="text-[9px] text-neutral-400 uppercase">CVV Dinâmico</p>
+                            <p class="font-bold text-amber-400">882</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARTÃO VIRTUAL -->
+                <div class="bg-gradient-to-br from-nu-deepPurple to-nu-purple p-5 rounded-2xl border border-purple-800">
+                    <div class="flex justify-between items-start mb-6">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-purple-200">Cartão Virtual Compras Online</span>
+                        <button onclick="showToast('Número copiado!')" class="text-xs bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-md text-white font-medium flex items-center space-x-1">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>Copiar</span>
+                        </button>
+                    </div>
+                    <p class="text-base tracking-widest font-mono text-white font-bold mb-4">4024 8812 9011 4482</p>
+                </div>
+            </div>
+
+            <button onclick="closeModal('modal-cards')" class="w-full py-3 bg-nu-card border border-neutral-700 font-bold text-sm rounded-full text-white hover:bg-neutral-800">
+                Fechar
+            </button>
+        </div>
+    </div>
+
+    <!-- AUXILIARY TRANSACTION MODALS -->
+    <div id="modal-pix" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Área Pix</h3><button onclick="closeModal('modal-pix')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <div class="space-y-4 mb-6">
+                <input id="pix-key-input" type="text" placeholder="Chave Pix (CPF, E-mail ou Telefone)" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-nu-purple">
+                <input id="pix-amount-input" type="number" step="0.01" placeholder="Valor (R$)" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-lg font-bold text-white focus:outline-none focus:border-nu-purple">
+            </div>
+            <button onclick="executePixTransfer()" class="w-full py-3.5 bg-nu-purple font-extrabold text-sm rounded-full text-white active:scale-95 transition shadow-lg">Enviar Pix Agora</button>
+        </div>
+    </div>
+
+    <div id="modal-loan" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Simular Empréstimo</h3><button onclick="closeModal('modal-loan')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <input id="loan-amount-input" type="number" value="3000" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-lg font-bold text-white mb-6">
+            <button onclick="executeLoanContract()" class="w-full py-3.5 bg-emerald-600 font-extrabold text-sm rounded-full text-white">Contratar e Receber</button>
+        </div>
+    </div>
+
+    <div id="modal-caixinhas" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Minhas Caixinhas</h3><button onclick="closeModal('modal-caixinhas')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <input id="caixinha-amount-input" type="number" placeholder="100,00" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-lg font-bold text-white mb-6">
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="executeCaixinhaDeposit()" class="py-3 bg-nu-purple font-bold text-xs rounded-full text-white">Guardar Dinheiro</button>
+                <button onclick="executeCaixinhaWithdraw()" class="py-3 bg-nu-card border border-neutral-700 font-bold text-xs rounded-full text-white">Resgatar Valor</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-recharge" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Recarga de Celular</h3><button onclick="closeModal('modal-recharge')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <select id="recharge-val-select" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-sm font-bold text-white mb-6"><option value="20">R$ 20,00</option><option value="30" selected>R$ 30,00</option><option value="50">R$ 50,00</option></select>
+            <button onclick="executeRecharge()" class="w-full py-3.5 bg-nu-purple font-extrabold text-sm rounded-full text-white">Confirmar Recarga</button>
+        </div>
+    </div>
+
+    <div id="modal-crypto" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Nu Cripto</h3><button onclick="closeModal('modal-crypto')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <input id="crypto-buy-amount" type="number" placeholder="50,00" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-lg font-bold text-white mb-6">
+            <button onclick="executeCryptoBuy()" class="w-full py-3.5 bg-amber-500 font-extrabold text-sm rounded-full text-black">Comprar Bitcoin</button>
+        </div>
+    </div>
+
+    <div id="modal-deposit" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Depositar Dinheiro</h3><button onclick="closeModal('modal-deposit')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <input id="dep-amount" type="number" placeholder="Digite o valor" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-lg font-bold text-white mb-6">
+            <button onclick="executeDepositAction()" class="w-full py-3.5 bg-nu-purple font-bold text-sm rounded-full text-white">Confirmar Depósito</button>
+        </div>
+    </div>
+
+    <div id="modal-pay" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Pagar Conta / Boleto</h3><button onclick="closeModal('modal-pay')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <input id="pay-boleto-amount" type="number" value="120.00" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-lg font-bold text-white mb-6">
+            <button onclick="executeBoletoPayAction()" class="w-full py-3.5 bg-nu-purple font-bold text-sm rounded-full text-white">Pagar Boleto</button>
+        </div>
+    </div>
+
+    <div id="modal-transfer" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-end sm:items-center p-0 sm:p-4">
+        <div class="w-full max-w-md bg-nu-black rounded-t-3xl sm:rounded-3xl p-6 sheet-up border border-neutral-800">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-xl font-bold text-white">Transferência Bancária</h3><button onclick="closeModal('modal-transfer')" class="p-2 text-neutral-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <input id="trans-name" type="text" placeholder="Nome do favorecido" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-sm text-white mb-3">
+            <input id="trans-amount" type="number" placeholder="Valor R$" class="w-full bg-nu-card border border-neutral-700 rounded-xl p-3 text-lg font-bold text-white mb-6">
+            <button onclick="executeTransferAction()" class="w-full py-3.5 bg-nu-purple font-bold text-sm rounded-full text-white">Transferir</button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 bg-white text-black px-5 py-3 rounded-full shadow-2xl font-bold text-xs transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center space-x-2">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+        <span id="toast-text">Valor alterado com sucesso!</span>
+    </div>
+
+    <!-- APP LOGIC & STATE CONTROLLER -->
+    <script>
+        let appState = {
+            userName: 'Natan',
+            balance: 2450.80,
+            creditInvoice: 840.20,
+            creditLimit: 4159.80,
+            caixinhaBalance: 3500.00,
+            nucoins: 2840,
+            isBalanceVisible: true,
+            transactions: [
+                { id: 1, title: 'Pix Recebido', desc: 'Fernanda Lima', amount: 350.00, type: 'in', date: 'Hoje, 11:30' },
+                { id: 2, title: 'Pagamento de Fatura', desc: 'Nubank Cartão', amount: -250.00, type: 'out', date: 'Ontem, 16:40' }
+            ]
+        };
+
+        let currentEditingField = null;
+
+        window.onload = function() {
+            lucide.createIcons();
+            renderExtrato();
+            refreshUI();
+        };
+
+        function formatBRL(val) {
+            return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        /* DIRECT CLICK TO EDIT LOGIC (DISCREET & CLEAN) */
+        function promptEdit(field) {
+            currentEditingField = field;
+            const input = document.getElementById('quick-edit-input');
+            const title = document.getElementById('quick-edit-title');
+            const label = document.getElementById('quick-edit-label');
+
+            if (field === 'userName') {
+                title.textContent = 'Editar Nome de Exibição';
+                label.textContent = 'Novo nome';
+                input.type = 'text';
+                input.value = appState.userName;
+            } else if (field === 'balance') {
+                title.textContent = 'Editar Saldo da Conta';
+                label.textContent = 'Novo saldo principal (R$)';
+                input.type = 'number';
+                input.step = '0.01';
+                input.value = appState.balance;
+            } else if (field === 'creditInvoice') {
+                title.textContent = 'Editar Fatura do Cartão';
+                label.textContent = 'Novo valor da fatura (R$)';
+                input.type = 'number';
+                input.step = '0.01';
+                input.value = appState.creditInvoice;
+            } else if (field === 'creditLimit') {
+                title.textContent = 'Editar Limite Disponível';
+                label.textContent = 'Novo limite disponível (R$)';
+                input.type = 'number';
+                input.step = '0.01';
+                input.value = appState.creditLimit;
+            } else if (field === 'caixinhaBalance') {
+                title.textContent = 'Editar Saldo das Caixinhas';
+                label.textContent = 'Novo valor em Caixinhas (R$)';
+                input.type = 'number';
+                input.step = '0.01';
+                input.value = appState.caixinhaBalance;
+            } else if (field === 'nucoins') {
+                title.textContent = 'Editar NuCoins';
+                label.textContent = 'Quantidade de NuCoins';
+                input.type = 'number';
+                input.step = '1';
+                input.value = appState.nucoins;
+            }
+
+            openModal('modal-quick-edit');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function saveQuickEdit(e) {
+            e.preventDefault();
+            const inputVal = document.getElementById('quick-edit-input').value;
+
+            if (currentEditingField === 'userName') {
+                appState.userName = inputVal.trim() || 'Natan';
+                showToast('Nome atualizado!');
+            } else {
+                const numVal = parseFloat(inputVal) || 0;
+                if (currentEditingField === 'balance') {
+                    appState.balance = numVal;
+                    addTransaction('Ajuste de Saldo', 'Edição Manual Direta', numVal, 'in');
+                } else if (currentEditingField === 'creditInvoice') {
+                    appState.creditInvoice = numVal;
+                } else if (currentEditingField === 'creditLimit') {
+                    appState.creditLimit = numVal;
+                } else if (currentEditingField === 'caixinhaBalance') {
+                    appState.caixinhaBalance = numVal;
+                } else if (currentEditingField === 'nucoins') {
+                    appState.nucoins = parseInt(numVal) || 0;
+                }
+                showToast('Valor alterado com sucesso!');
+            }
+
+            refreshUI();
+            closeModal('modal-quick-edit');
+        }
+
+        function toggleBalanceVisibility() {
+            appState.isBalanceVisible = !appState.isBalanceVisible;
+            const eyeIcon = document.getElementById('eye-icon');
+            eyeIcon.setAttribute('data-lucide', appState.isBalanceVisible ? 'eye' : 'eye-off');
+            lucide.createIcons();
+            refreshUI();
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-page').forEach(page => page.classList.add('hidden'));
+
+            const navHome = document.getElementById('nav-home');
+            const navFin = document.getElementById('nav-finance');
+            const navHub = document.getElementById('nav-hub');
+
+            navHome.className = "flex flex-col items-center justify-center w-full text-neutral-500 hover:text-white";
+            navFin.className = "flex flex-col items-center justify-center w-full text-neutral-500 hover:text-white";
+            navHub.className = "flex flex-col items-center justify-center w-full text-neutral-500 hover:text-white";
+
+            if (tab === 'home') {
+                document.getElementById('tab-home').classList.remove('hidden');
+                navHome.className = "flex flex-col items-center justify-center w-full text-nu-purple";
+            } else if (tab === 'finance') {
+                document.getElementById('tab-finance').classList.remove('hidden');
+                navFin.className = "flex flex-col items-center justify-center w-full text-nu-purple";
+            } else if (tab === 'hub') {
+                document.getElementById('tab-hub').classList.remove('hidden');
+                navHub.className = "flex flex-col items-center justify-center w-full text-nu-purple";
+            }
+        }
+
+        function refreshUI() {
+            document.getElementById('user-greeting').textContent = `Olá, ${appState.userName}`;
+            document.getElementById('avatar-initial').textContent = appState.userName.charAt(0).toUpperCase();
+            document.getElementById('card-holder-name').textContent = appState.userName;
+            document.getElementById('nucoins-count').textContent = `${appState.nucoins.toLocaleString('pt-BR')} NuCoins`;
+            document.getElementById('hub-nucoins-val').textContent = `${appState.nucoins.toLocaleString('pt-BR')} NuCoins`;
+
+            const mainBal = document.getElementById('main-balance');
+            const invoice = document.getElementById('credit-invoice');
+            const limit = document.getElementById('credit-limit');
+            const finTotal = document.getElementById('finance-total-networth');
+            const finAcc = document.getElementById('fin-acc-bal');
+            const finBox = document.getElementById('fin-box-bal');
+
+            const totalPatrimony = appState.balance + appState.caixinhaBalance;
+
+            if (appState.isBalanceVisible) {
+                mainBal.textContent = formatBRL(appState.balance);
+                invoice.textContent = formatBRL(appState.creditInvoice);
+                limit.textContent = formatBRL(appState.creditLimit);
+                finTotal.textContent = formatBRL(totalPatrimony);
+                finAcc.textContent = formatBRL(appState.balance);
+                finBox.textContent = formatBRL(appState.caixinhaBalance);
+                mainBal.classList.remove('blur-balance');
+            } else {
+                mainBal.textContent = '••••';
+                invoice.textContent = '••••';
+                limit.textContent = '••••';
+                finTotal.textContent = '••••';
+                finAcc.textContent = '••••';
+                finBox.textContent = '••••';
+                mainBal.classList.add('blur-balance');
+            }
+
+            document.getElementById('credit-limit-slider').value = appState.creditLimit;
+            document.getElementById('limit-slider-val').textContent = formatBRL(appState.creditLimit);
+        }
+
+        function renderExtrato() {
+            const container = document.getElementById('extrato-feed');
+            container.innerHTML = '';
+
+            appState.transactions.forEach(t => {
+                const isPositive = t.type === 'in';
+                const icon = isPositive ? 'arrow-down-left' : 'arrow-up-right';
+                const valClass = isPositive ? 'text-emerald-400' : 'text-neutral-200';
+                const sign = isPositive ? '+' : '-';
+
+                const el = document.createElement('div');
+                el.className = 'flex justify-between items-center py-2.5 border-b border-neutral-800/50';
+                el.innerHTML = `
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-10 h-10 rounded-full bg-nu-card flex items-center justify-center text-neutral-300 border border-neutral-800">
+                            <i data-lucide="${icon}" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="text-xs font-bold text-white">${t.title}</h5>
+                            <p class="text-[11px] text-neutral-400">${t.desc} • ${t.date}</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-bold ${valClass}">${appState.isBalanceVisible ? sign + ' ' + formatBRL(Math.abs(t.amount)) : '••••'}</span>
+                `;
+                container.appendChild(el);
+            });
+            lucide.createIcons();
+        }
+
+        function addTransaction(title, desc, amount, type) {
+            appState.transactions.unshift({
+                id: Date.now(),
+                title,
+                desc,
+                amount: type === 'out' ? -Math.abs(amount) : Math.abs(amount),
+                type,
+                date: 'Agora'
+            });
+            renderExtrato();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => toast.classList.add('opacity-0', 'pointer-events-none'), 3000);
+        }
+
+        function executePixTransfer() {
+            const key = document.getElementById('pix-key-input').value || 'Chave Pix';
+            const val = parseFloat(document.getElementById('pix-amount-input').value);
+
+            if (!val || val <= 0) return showToast('Digite um valor válido.');
+            if (val > appState.balance) return showToast('Saldo insuficiente!');
+
+            appState.balance -= val;
+            addTransaction('Pix enviado', key, val, 'out');
+            refreshUI();
+            closeModal('modal-pix');
+            showToast(`Pix de ${formatBRL(val)} enviado!`);
+            document.getElementById('pix-amount-input').value = '';
+        }
+
+        function executeLoanContract() {
+            const val = parseFloat(document.getElementById('loan-amount-input').value);
+            if (!val || val <= 0) return showToast('Informe o valor.');
+
+            appState.balance += val;
+            addTransaction('Empréstimo Contratado', 'Crédito Pessoal', val, 'in');
+            refreshUI();
+            closeModal('modal-loan');
+            showToast(`Empréstimo de ${formatBRL(val)} creditado!`);
+        }
+
+        function executeCaixinhaDeposit() {
+            const val = parseFloat(document.getElementById('caixinha-amount-input').value);
+            if (!val || val <= 0 || val > appState.balance) return showToast('Saldo insuficiente.');
+
+            appState.balance -= val;
+            appState.caixinhaBalance += val;
+            addTransaction('Aplicação Caixinha', 'Reserva CDI', val, 'out');
+            refreshUI();
+            closeModal('modal-caixinhas');
+            showToast(`${formatBRL(val)} guardados na Caixinha!`);
+        }
+
+        function executeCaixinhaWithdraw() {
+            const val = parseFloat(document.getElementById('caixinha-amount-input').value);
+            if (!val || val <= 0 || val > appState.caixinhaBalance) return showToast('Valor indisponível.');
+
+            appState.caixinhaBalance -= val;
+            appState.balance += val;
+            addTransaction('Resgate Caixinha', 'Conta Principal', val, 'in');
+            refreshUI();
+            closeModal('modal-caixinhas');
+            showToast(`${formatBRL(val)} resgatados!`);
+        }
+
+        function executeRecharge() {
+            const val = parseFloat(document.getElementById('recharge-val-select').value);
+            if (val > appState.balance) return showToast('Saldo insuficiente.');
+
+            appState.balance -= val;
+            addTransaction('Recarga de Celular', 'Vivo Pré', val, 'out');
+            refreshUI();
+            closeModal('modal-recharge');
+            showToast(`Recarga efetuada!`);
+        }
+
+        function executeCryptoBuy() {
+            const val = parseFloat(document.getElementById('crypto-buy-amount').value);
+            if (!val || val <= 0 || val > appState.balance) return showToast('Saldo insuficiente.');
+
+            appState.balance -= val;
+            addTransaction('Compra Nu Cripto', 'Bitcoin (BTC)', val, 'out');
+            refreshUI();
+            closeModal('modal-crypto');
+            showToast(`Compra de Bitcoin realizada!`);
+        }
+
+        function executeDepositAction() {
+            const val = parseFloat(document.getElementById('dep-amount').value);
+            if (!val || val <= 0) return showToast('Informe o valor.');
+
+            appState.balance += val;
+            addTransaction('Depósito Recebido', 'Via Pix', val, 'in');
+            refreshUI();
+            closeModal('modal-deposit');
+            showToast(`Depósito de ${formatBRL(val)} efetuado!`);
+        }
+
+        function executeBoletoPayAction() {
+            const val = parseFloat(document.getElementById('pay-boleto-amount').value);
+            if (!val || val <= 0 || val > appState.balance) return showToast('Saldo insuficiente.');
+
+            appState.balance -= val;
+            addTransaction('Pagamento Boleto', 'Concessionária', val, 'out');
+            refreshUI();
+            closeModal('modal-pay');
+            showToast('Boleto quitado!');
+        }
+
+        function executeTransferAction() {
+            const name = document.getElementById('trans-name').value || 'Contato';
+            const val = parseFloat(document.getElementById('trans-amount').value);
+            if (!val || val <= 0 || val > appState.balance) return showToast('Saldo insuficiente.');
+
+            appState.balance -= val;
+            addTransaction('Transferência Enviada', name, val, 'out');
+            refreshUI();
+            closeModal('modal-transfer');
+            showToast('Transferência efetuada!');
+        }
+
+        function payInvoice() {
+            if (appState.creditInvoice <= 0) return showToast('Sua fatura já está zerada!');
+            if (appState.balance < appState.creditInvoice) return showToast('Saldo na conta insuficiente.');
+
+            const paidVal = appState.creditInvoice;
+            appState.balance -= paidVal;
+            appState.creditLimit += paidVal;
+            appState.creditInvoice = 0;
+
+            addTransaction('Pagamento de Fatura', 'Cartão Nubank', paidVal, 'out');
+            refreshUI();
+            showToast('Fatura paga e limite restabelecido!');
+        }
+
+        function updateLimitFromSlider(val) {
+            appState.creditLimit = parseFloat(val);
+            document.getElementById('limit-slider-val').textContent = formatBRL(appState.creditLimit);
+            refreshUI();
+        }
+
+        function clearHistory() {
+            appState.transactions = [];
+            renderExtrato();
+            showToast('Histórico limpo.');
+        }
+    </script>
+</body>
+</html>
